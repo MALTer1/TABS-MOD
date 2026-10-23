@@ -1,0 +1,7 @@
+bin/
+obj/
+build/
+BepInEx/
+game-references/
+*.user
+*.suo
