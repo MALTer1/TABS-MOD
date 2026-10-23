@@ -1,0 +1,53 @@
+name: Build TABS BepInEx Mod
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out mod source
+        uses: actions/checkout@v4
+
+      - name: Check reference configuration
+        shell: pwsh
+        env:
+          TABS_REFERENCE_REPO: ${{ secrets.TABS_REFERENCE_REPO }}
+          TABS_REFERENCE_TOKEN: ${{ secrets.TABS_REFERENCE_TOKEN }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TABS_REFERENCE_REPO) -or
+              [string]::IsNullOrWhiteSpace($env:TABS_REFERENCE_TOKEN)) {
+            Write-Error "Configure repository secrets TABS_REFERENCE_REPO and TABS_REFERENCE_TOKEN. See README.md for setup."
+          }
+
+      - name: Check out private game references
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.TABS_REFERENCE_REPO }}
+          token: ${{ secrets.TABS_REFERENCE_TOKEN }}
+          path: game-references
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Download BepInEx 5
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/BepInEx/BepInEx/releases/download/v5.4.23.3/BepInEx_win_x64_5.4.23.3.zip" -OutFile "$env:RUNNER_TEMP\bepinex.zip"
+          Expand-Archive -Path "$env:RUNNER_TEMP\bepinex.zip" -DestinationPath "$env:GITHUB_WORKSPACE\BepInEx" -Force
+
+      - name: Build plugin
+        run: dotnet build src/TabsStarterMod.csproj --configuration Release
+
+      - name: Upload plugin DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: TabsStarterMod
+          path: build/TabsStarterMod.dll
